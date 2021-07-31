@@ -12,49 +12,62 @@ source $MY_DIR/utils.sh
 
 OPENSSL_ROOT=openssl-3.5.1
 OPENSSL_HASH=529043b15cffa5f36077a4d0af83f3de399807181d607441d734196d889b641f
-
-cd /tmp
-
-if ! perl -e 'use 5.10.0' &> /dev/null; then
-	# perl>=5.10.0 is needed to build openssl
-	PERL_ROOT=perl-5.32.1
-	# Hash from https://www.cpan.org/src/5.0/perl-5.32.1.tar.gz.sha256.txt
-	PERL_HASH=03b693901cd8ae807231b1787798cf1f2e0b8a56218d07b7da44f784a7caeb2c
-
-	curl -fsSLO https://www.cpan.org/src/5.0/${PERL_ROOT}.tar.gz
-	check_sha256sum ${PERL_ROOT}.tar.gz ${PERL_HASH}
-	tar -xzf ${PERL_ROOT}.tar.gz
-	rm -rf ${PERL_ROOT}.tar.gz
-
-	pushd ${PERL_ROOT}
-	./Configure -des -Dprefix=/tmp/perl-openssl > /dev/null
-	make -j$(nproc) > /dev/null
-	make install > /dev/null
-	popd
-	export PATH=/tmp/perl-openssl/bin:${PATH}
+if [ "{OPENSSL_CACHE_DIR:-}" != "" ]; then
+	OPENSSL_ARCHIVE="/host${OPENSSL_CACHE_DIR:-}"
 else
-	if [ "${AUDITWHEEL_PLAT:0:9}" == "manylinux" ] && command -v yum >/dev/null 2>&1; then
+	OPENSSL_ARCHIVE="$(mktemp -d)"
+fi
+OPENSSL_ARCHIVE="${OPENSSL_ARCHIVE}/${OPENSSL_ROOT}-${AUDITWHEEL_PLAT}.tar.gz"
+
+if ! [ -e "${OPENSSL_ARCHIVE}" ]; then
+	cd /tmp
+
+	if ! perl -e 'use 5.10.0' &> /dev/null; then
+		# perl>=5.10.0 is needed to build openssl
+		PERL_ROOT=perl-5.32.1
+		# Hash from https://www.cpan.org/src/5.0/perl-5.32.1.tar.gz.sha256.txt
+		PERL_HASH=03b693901cd8ae807231b1787798cf1f2e0b8a56218d07b7da44f784a7caeb2c
+
+		curl -fsSLO https://www.cpan.org/src/5.0/${PERL_ROOT}.tar.gz
+		check_sha256sum ${PERL_ROOT}.tar.gz ${PERL_HASH}
+		tar -xzf ${PERL_ROOT}.tar.gz
+		rm -rf ${PERL_ROOT}.tar.gz
+
+		pushd ${PERL_ROOT}
+		./Configure -des -Dprefix=/tmp/perl-openssl > /dev/null
+		make -j$(nproc) > /dev/null
+		make install > /dev/null
+		popd
+		export PATH=/tmp/perl-openssl/bin:${PATH}
+	elif [ "${AUDITWHEEL_PLAT:0:9}" == "manylinux" ] && command -v yum >/dev/null 2>&1; then
 		# more perl modules are needed than the bare minimum already installed in CentOS
 		# c.f. https://github.com/openssl/openssl/blob/openssl-3.0.0/NOTES-PERL.md#general-notes
 		yum -y install perl-core
 	fi
+
+	# Download
+	curl -fsSLO https://github.com/openssl/openssl/releases/download/${OPENSSL_ROOT}/${OPENSSL_ROOT}.tar.gz
+	check_sha256sum ${OPENSSL_ROOT}.tar.gz ${OPENSSL_HASH}
+	tar -xzf ${OPENSSL_ROOT}.tar.gz
+	rm -rf ${OPENSSL_ROOT}.tar.gz
+
+	# Configure
+	pushd ${OPENSSL_ROOT}
+	./config no-shared no-tests -fPIC --prefix=/usr/local/ssl --openssldir=/usr/local/ssl > /dev/null
+
+
+	# Build
+	make -j$(nproc) > /dev/null
+
+	# Install
+	make install_sw DESTDIR=/tmp/${OPENSSL_ROOT}-root > /dev/null
+
+	# Create cache archive
+	mkdir -p "$(dirname ${OPENSSL_ARCHIVE})"
+	tar -C /tmp/${OPENSSL_ROOT}-root -czf "${OPENSSL_ARCHIVE}" usr
+
+	popd
+	rm -rf ${OPENSSL_ROOT}
 fi
 
-# Download
-curl -fsSLO https://github.com/openssl/openssl/releases/download/${OPENSSL_ROOT}/${OPENSSL_ROOT}.tar.gz
-check_sha256sum ${OPENSSL_ROOT}.tar.gz ${OPENSSL_HASH}
-tar -xzf ${OPENSSL_ROOT}.tar.gz
-rm -rf ${OPENSSL_ROOT}.tar.gz
-
-# Configure
-pushd ${OPENSSL_ROOT}
-./config no-shared no-tests -fPIC --prefix=/usr/local/ssl --openssldir=/usr/local/ssl > /dev/null
-
-# Build
-make -j$(nproc) > /dev/null
-
-# Install
-make install_sw > /dev/null
-
-popd
-rm -rf ${OPENSSL_ROOT}
+tar -C / -xf "${OPENSSL_ARCHIVE}"
