@@ -93,6 +93,13 @@ jobs:
         uses: docker/setup-qemu-action@v1.2.0
         if: matrix.use_qemu && fromJSON(env.USE_QEMU)
 
+      - name: Cache OpenSSL build
+        if: runner.os == 'Linux'
+        uses: actions/cache@v2
+        with:
+          path: .cache-openssl
+          key: ${{ matrix.os }}-${{ matrix.build }}${{ matrix.arch }}-${{ hashFiles('scripts/manylinux-build-and-install-openssl.sh') }}
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.2.0a1
         if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
