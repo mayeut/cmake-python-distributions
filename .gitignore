@@ -60,3 +60,6 @@ docs/_build
 # IDE junk
 .idea/*
 *.swp
+
+# OpenSSL build cache
+.cache-openssl/
