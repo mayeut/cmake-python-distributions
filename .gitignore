@@ -70,3 +70,6 @@ _version.py
 
 CMakeCache.txt
 CMakeFiles
+
+# OpenSSL build cache
+.cache-openssl/
