@@ -214,7 +214,7 @@ if(CMakePythonDistributions_SUPERBUILD)
               -DCMake_TEST_Fortran:BOOL=FALSE
               )
             message(STATUS "SuperBuild -   CMakeProject-build - fortran tests disabled")
-          fi
+          endif()
         endif()
 
         # Y2K38 support
