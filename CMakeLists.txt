@@ -208,6 +208,13 @@ if(CMakePythonDistributions_SUPERBUILD)
           if("${GLIBC_MAJOR}.${GLIBC_MINOR}" VERSION_LESS "2.12")
             message(FATAL_ERROR "GLIBC ${GLIBC_MAJOR}.${GLIBC_MINOR} not supported")
           endif()
+          if("${GLIBC_MAJOR}.${GLIBC_MINOR}" VERSION_LESS "2.32" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^armv7")
+            # gfortran architecture id discovery fails on manylinux_2_31
+            list(APPEND _cmake_cache_args
+              -DCMake_TEST_Fortran:BOOL=FALSE
+              )
+            message(STATUS "SuperBuild -   CMakeProject-build - fortran tests disabled")
+          fi
         endif()
 
         # Y2K38 support
