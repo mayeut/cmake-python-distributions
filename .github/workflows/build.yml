@@ -2,11 +2,6 @@ name: CI
 
 on:
   workflow_dispatch:
-    inputs:
-      use_qemu:
-        description: 'Use qemu to build linux ppc64le, s390x & riscv64'
-        required: true
-        default: true
   schedule:
     - cron: '0 18 * * 5'  # "At 18:00 on Friday."
   pull_request:
@@ -20,9 +15,6 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  USE_QEMU: ${{ fromJSON(github.event.inputs.use_qemu || 'false') || (github.event_name == 'schedule') || startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   lint:
@@ -46,101 +38,103 @@ jobs:
         include:
           - os: ubuntu-latest
             arch: "x86_64"
+            docker_arch: "amd64"
             build: "manylinux_"
-            use_qemu: false
           - os: ubuntu-latest
             arch: "x86_64"
+            docker_arch: "amd64"
             build: "musllinux_"
-            use_qemu: false
           - os: ubuntu-latest
             arch: "i686"
+            docker_arch: "386"
             build: "manylinux_"
-            use_qemu: false
           - os: ubuntu-latest
             arch: "i686"
+            docker_arch: "386"
             build: "musllinux_"
-            use_qemu: false
           - os: ubuntu-24.04-arm
             arch: "aarch64"
+            docker_arch: "arm64"
             build: "manylinux_"
-            use_qemu: false
           - os: ubuntu-24.04-arm
             arch: "aarch64"
+            docker_arch: "arm64"
             build: "musllinux_"
-            use_qemu: false
           - os: ubuntu-latest
             arch: "ppc64le"
             build: "manylinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "ppc64le"
             build: "musllinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "s390x"
             build: "manylinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "s390x"
             build: "musllinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "riscv64"
             build: "manylinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "riscv64"
             build: "musllinux_"
-            use_qemu: true
           - os: ubuntu-24.04-arm
             arch: "armv7l"
+            docker_arch: "arm/v7"
             build: "manylinux_"
-            use_qemu: false
           - os: ubuntu-24.04-arm
             arch: "armv7l"
+            docker_arch: "arm/v7"
             build: "musllinux_"
-            use_qemu: false
           - os: windows-2022
             arch: "AMD64"
             build: ""
-            use_qemu: false
           - os: windows-11-arm
             arch: "ARM64"
             build: ""
-            use_qemu: false
           - os: windows-2022
             arch: "x86"
             build: ""
-            use_qemu: false
           - os: macos-14
             arch: "universal2"
             build: ""
-            use_qemu: false
 
     steps:
       - uses: actions/checkout@v5
-        if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
         with:
           fetch-depth: 0  # required for versioneer to find tags
 
       - uses: astral-sh/setup-uv@v6
-        if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
         with:
           enable-cache: false
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3.6.0
-        if: matrix.use_qemu && fromJSON(env.USE_QEMU)
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+        if: runner.os == 'Linux'
+
+      - name: Build cmake_${{ matrix.build }}${{ matrix.arch }} image
+        uses: docker/build-push-action@v6.18.0
+        if: runner.os == 'Linux'
+        with:
+          context: ./docker-images
+          load: true
+          push: false
+          build-args: |
+            BASE_IMAGE=${{ (matrix.build == 'musllinux_') && 'quay.io/pypa/musllinux_1_2:2025.08.15-1' || ( (matrix.arch == 'riscv64') && 'ghcr.io/mayeut/manylinux_2_31:2025.08.16-1' || ((matrix.arch == 'armv7l') && 'quay.io/pypa/manylinux_2_31:2025.08.15-1' || 'quay.io/pypa/manylinux2014:2025.08.15-1') ) }}
+          tags: cmake_${{ matrix.build }}${{ matrix.arch }}:latest
+          platforms: linux/${{ matrix.docker_arch || matrix.arch }}
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.1
-        if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
         env:
           CIBW_ARCHS: "${{ matrix.arch }}"
           CIBW_BUILD: "cp310-${{ matrix.build }}*"
 
       - uses: actions/upload-artifact@v4
-        if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
         with:
           name: cibw-${{ runner.os }}-${{ matrix.build }}${{ matrix.arch }}
           path: ./wheelhouse/*.whl
