@@ -106,7 +106,7 @@ jobs:
         if: matrix.arch == 'ppc64le' || matrix.arch == 'riscv64' || matrix.arch == 's390x'
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.2
+        uses: pypa/cibuildwheel@v3.3
         env:
           CIBW_ARCHS: "${{ matrix.arch }}"
           CIBW_BUILD: "cp310-${{ matrix.build }}*"
