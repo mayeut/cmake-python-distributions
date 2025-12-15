@@ -22,7 +22,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
@@ -93,7 +93,7 @@ jobs:
             build: ""
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # required for versioneer to find tags
 
@@ -106,12 +106,12 @@ jobs:
         if: matrix.arch == 'ppc64le' || matrix.arch == 'riscv64' || matrix.arch == 's390x'
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.2
+        uses: pypa/cibuildwheel@v3.3
         env:
           CIBW_ARCHS: "${{ matrix.arch }}"
           CIBW_BUILD: "cp310-${{ matrix.build }}*"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-${{ runner.os }}-${{ matrix.build }}${{ matrix.arch }}
           path: ./wheelhouse/*.whl
@@ -121,14 +121,14 @@ jobs:
     needs: [lint]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # required for versioneer to find tags
 
       - name: Build SDist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-sdist
           path: dist/*.tar.gz
@@ -143,7 +143,7 @@ jobs:
         python: ["3.8", "3.13"]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
@@ -158,7 +158,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libssl-dev
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: cibw-sdist
           path: dist
@@ -183,7 +183,7 @@ jobs:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         id: python
         with:
@@ -234,7 +234,7 @@ jobs:
     needs: [build_wheels, build_sdist, test_sdist, bootstrap_build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: cibw-*
           merge-multiple: true
@@ -254,7 +254,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: cibw-*
           merge-multiple: true
